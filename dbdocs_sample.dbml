@@ -1,6 +1,7 @@
+// 꼭 필요하지는 않음
 Project DBDocsSample{
   database_type: 'MySQL'
-  Note: `'''
+  Note: '''
     # DbDocs의 테스트 입니다.
     **md형식으로 제작하면 됩니다.**
   '''
