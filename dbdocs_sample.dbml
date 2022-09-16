@@ -1,0 +1,56 @@
+Project DBDocsSample{
+  database_type: 'MySQL'
+  Note: `'''
+    # DbDocs의 테스트 입니다.
+    **md형식으로 제작하면 됩니다.**
+  '''
+}
+
+//Create Table And Relationship
+//Default Setting, Comment
+Table TestTable1 as U {
+  //test1 int [ref: > TestTable4.test1, pk, increment, note: "test"] // auto-increment
+  test1 int [ pk, increment, note: "test"] // auto-increment
+  test2 varchar [not null]
+  test3 timestamp [default: `now()`]
+  test4 boolean [default: true]
+  test5 tinyint
+  test6 long
+  test7 datetime [default: `now()`]
+}
+
+Table TestTable2 as I {
+  //test1 int [ref: - U.test1]
+  test1 int
+  test2 varchar
+}
+
+Table TestTable3 as J {
+  //test1 int [ref: < U.test1]
+  test1 int
+}
+
+Table TestTable4 {
+  test1 int
+}
+
+ref: U.test1 - I.test1
+ref: U.test1 < J.test1
+ref: U.test1 > TestTable4.test1
+
+//multi-column Relationship
+ref: U.(test1, test2) < I.(test1, test2)
+
+
+//Indexes
+//Single Column, Multi Column is Your Choice
+Table TestIndexTable1 {
+  test1 int [pk]
+  test2 varchar
+  test3 timestamp
+
+  Indexes{
+    (test1, test2) [name:'IndexTable1']
+    //test2 [unique] //Choice
+  }
+}
