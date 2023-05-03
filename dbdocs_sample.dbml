@@ -1,57 +1,251 @@
-// 꼭 필요하지는 않음
 Project DBDocsSample{
-  database_type: 'MySQL'
-  Note: '''
-    # DbDocs의 테스트 입니다.
-    **md형식으로 제작하면 됩니다.**
-  '''
+  database_type: 'MariaDB'
+  Note: '
+    Optinal한 항목입니다. 
+    하지만 DBDocs를 활용할 경우 해당 정보를 바탕으로 문서가 생성됩니다.
+    해당 프로젝트는 DBDocs와 DBDiagram의 학습이므로 간단하게만 관계를 가져갑니다.
+    ---
+
+    MarkDown형식을 지원하지만 HTML을 지원하지는 않습니다. 
+    또한 스타일을 바꾸는것역시 제가알기로는 지원하지 않습니다.
+  '
+}
+//---------------------------------------------------------------------------
+// 사용자
+
+
+// Enum의 경우에는 현재 Enum자체에 note의 지정이 불가능하다.
+enum auth.user_role{
+  GUEST [note: '게스트 권한']
+  USER  [note: '사용자 권한']
+  ADMIN [note: '관리자']
 }
 
-//Create Table And Relationship
-//Default Setting, Comment
-Table TestTable1 as U {
-  //test1 int [ref: > TestTable4.test1, pk, increment, note: "test"] // auto-increment
-  test1 int [ pk, increment, note: "test"] // auto-increment
-  test2 varchar [not null]
-  test3 timestamp [default: `now()`]
-  test4 boolean [default: true]
-  test5 tinyint
-  test6 long
-  test7 datetime [default: `now()`]
+// 계정 상태
+enum auth.user_status{
+  WAITING [note: '메일인증 대기상태']
+  ACTIVE  [note: '정상 사용']
+  DORMANT [note: '휴면']
+  BLOCKD  [note: '정지']
+  LOCKED  [note: '잠금']
+  DELETE  [note: '삭제']
 }
 
-Table TestTable2 as I {
-  //test1 int [ref: - U.test1]
-  test1 int
-  test2 varchar
+// MVP결제상태
+enum auth.user_mvp_level {
+  BRONZE  [note: '브론즈']
+  SILVER  [note: '실버']
+  GOLD    [note: '골드']
+  DIAMOND [note: '다이아몬드']
 }
 
-Table TestTable3 as J {
-  //test1 int [ref: < U.test1]
-  test1 int
+// 계정별 가입 서비스 종류
+enum auth.user_provider_type {
+  HOMEPAGE  [note:'홈페이지를 통한 가입, 해당 방식을 Default로 한다']
+  KAKAO     [note: '카카오 가입']
+  NAVER     [note: '네아로 가입']
+  GOOGLE    [note: '구글로 가입']
+  APPLE     [note: '애플로 가입']
 }
 
-Table TestTable4 {
-  test1 int
-}
-
-ref: U.test1 - I.test1
-ref: U.test1 < J.test1
-ref: U.test1 > TestTable4.test1
-
-//multi-column Relationship
-ref: U.(test1, test2) < I.(test1, test2)
-
-
-//Indexes
-//Single Column, Multi Column is Your Choice
-Table TestIndexTable1 {
-  test1 int [pk]
-  test2 varchar
-  test3 timestamp
+// 사용자 관련은 #EB801B로 ...!
+Table auth.t_user as U[
+  headercolor: #EB801B, 
+  note:'
+  사용자 정보 Table
+'] {
+  id bigint(20) [pk, increment, note: '사용자 계정 고유 정보']
+  login_id   varchar(255) [unique, not null, note:'
+    사용자 접속 ID
+  ']
+  name varchar(255) [not null, note: '사용자 명']
+  password varchar(255) [not null, note: '사용자 패스워드']
+  provider_type auth.user_provider_type [not null, default: 'HOMEPAGE', note: '
+    Enum의 Default의 경우에는 값을 넣어줘야 하며, 연결이 되진 않습니다.
+    기본 가입은 HOMEPAGE로 생각합니다.
+  ']
+  role auth.user_role [not null, default:'USER', note: '사용자 Role']
+  status auth.user_status [not null, default:'WAITING', note:'사용자 계정 상태']
+  mvp_level auth.user_mvp_level [not null, default: 'BRONZE', note:'사용자 결제 상태']
+  email varchar(255) [note:'사용자 메일']
+  login_at datetime(6)  [default: `now`, note: '마지막 로그인']
+  lock_count int  [default: 0, note: '로그인 실패 횟수']
+  created_at datetime(6) [not null, default: `now()`, note:'계정 생성일']
+  updated_at datetime(6) [not null, default: `now()`, note:'계정 정보 최종 수정일']
+  updated_user bigint(20) [ref: > U.id ,default: null, note:'
+    auth.t_user.id를 OneToMany로 관계한다. 관리자 수정을 통해 여러명이 나올 수 있기 때문
+    최종 계정 정보 수정자, 해당 정보는 관리자가 수정 할 수도 있으므로...
+  ']
 
   Indexes{
-    (test1, test2) [name:'IndexTable1']
-    //test2 [unique] //Choice
+    (id, status) [name:'t_user_id_status_idx', note: '계정 가입순서, 상태로 인덱식, 상태값을 기준으로 찾을일이 많으므로..']
+  }
+}
+
+Table auth.t_user_provider_key[
+  headercolor: #EB801B, 
+  note:'
+  사용자 정보 Table
+']{
+  id bigint(20) [increment]
+  user_id bigint(20) [ref:- U.id ,not null, note: '사용자 계정 고유 ID']
+  provider_type auth.user_provider_type [not null, note: '
+    auth.t_user정보를 그대로 가져온다. 꼭 필요하진 않은 컬럼이고 조인해서 가져와도 좋을듯함
+  ']
+  refresh_token varchar(255) [not null, note: '사용자 refresh Token Value']
+  expired_time datetime   [not null, note:'provider에서 받은 payload영역의 expired_date시간']
+  need_delete tinyint(1) [default: 0, note:'
+    삭제 필요 여부, 0:미삭제, 1:삭제 , expired_time이 Over되면 true로 바꾸고 특정 시간에 batch로 전체 Delete
+  ']
+
+  Indexes{
+    (id, user_id, provider_type) [pk] //Multiple로 Pk 가 필요할것 같아서..
+    (id, user_id, provider_type) [name:'i_provider_key_default_idx']
+    (need_delete) [name: 'i_provider_key_delete_order', note:'삭제 여부 확인을 위한 Idx']
+  }
+}
+
+Table logs.t_logs[
+  headercolor: #DE65C3,
+  note:'
+    관리차원 로그 메세지를 담을 수 있는 테이블
+  '
+]{
+  id bigint(20) [pk, increment, note:'id']
+  table_name varchar(255) [not null, note: '작업 테이블']
+  logmessage longtext [not null, note:'작업내역']
+  created_at datetime [not null, default: `now()`, note: '생성일']
+}
+
+//---------------------------------------------------------------------------
+// 게시판
+enum board.article_status {
+  WRITING
+  WAITING [note: '대기']
+  POST
+  HIDING  [note: '숨김처리']
+  DELETE  [note: '삭제']
+}
+
+enum board.board_type {
+  ONEONONE  [note: '1:1 게시판']
+  SECRET    [note: '비밀 게시판, 특정 지정한 사용자만 접속 가능하다.']
+  QUESTION  [note: '질문 게시판']
+  ONEONMANY [note: '전체 게시판']
+}
+
+enum board.board_status{
+  HIDE    [note: '숨김처리']
+  USE     [note: '현재 사용중']
+  NOT_USE [note: '현재 사용중 X']
+  DELETE  [note: '삭제 처리']
+}
+
+
+
+
+
+
+//---------------------------------------------------------------------------
+//관리자 기능
+//유료 기능인점 주의
+TableGroup Admin{
+  codes.t_code_category
+  codes.t_code_key
+  codes.t_code_value
+  logs.t_logs
+}
+
+
+Table codes.t_code_category [
+  headercolor: #A15CF5,
+  note:'
+    기능들에서 사용하는 Key, Value의 카테고리
+    테이블 인덱싱을 하기 위해서 사용한다
+  '
+]{
+  id bigint(20) [pk, increment, note: '코드 카테고리 id']
+  name varchar(255) [not null, note: '카테고리 명']
+  use_yn tinyint(1) [not null, default: 1, note:'
+    사용여부
+    1(true) : 사용, 0(false) : 미사용  
+  ']
+  created_at datetime [not null, default:`now()`, note: '생성일']
+  created_user bigint(20) [ref:> U.id, not null, note: '생성한 관리자 ID']
+  updated_at datetime [not null, default:`now()`, note: '최종 수정일']
+  updated_user bigint(20) [ref:> U.id, not null, note: '최종 수정한 관리자 ID']
+}
+
+//다음과 같이 중복해서 ref도 가능하나 ERD의 GUI모습이 더러워지기 떄문에 하지는 않겠다..
+//Ref: auth.t_user.(id, id) > codes.t_code_category.(created_user, updated_user) 
+
+
+Table codes.t_code_key [
+  headercolor: #A15CF5,
+  note:'
+    모든 기능들에서 사용할 코드 키를 만드는 테이블
+  '
+]{
+  id bigint(20) [pk, increment, note: '키 리스트 고유값']
+  category bigint(20) [ref: > codes.t_code_category.id, not null, 
+    note: 'code를 사용할 카테고리 지정'
+  ]
+  key_id varchar(255) [unique, note: '사용자가 지정한 코드 키']
+  description longtext [null, note: '해당 키에 대한 설명']
+  use_yn tinyint(1) [not null, default: 1, note:'
+    사용여부
+    1(true) : 사용, 0(false) : 미사용  
+  ']
+  created_at datetime [not null, default:`now()`, note: '생성일']
+  created_user bigint(20) [ref:> U.id, not null, note: '생성한 관리자 ID']
+  updated_at datetime [not null, default:`now()`, note: '최종 수정일']
+  updated_user bigint(20) [ref:> U.id, not null, note: '최종 수정한 관리자 ID']
+  
+  Indexes {
+    category  [name: 't_code_key_category_idx']
+    key_id    [name: 't_code_key_key_id_idx']
+  }
+}
+
+Table codes.t_code_value [
+  headercolor: #A15CF5,
+  note:'
+    모든 기능들에서 사용할 코드 값를 만드는 테이블
+    일단 기본적으로 1:다로 생각하고 여러개의 Row를 만들어서 데이터를 추출하는 방식을 생각하였다.
+    하지만 Param을 여러개 만든 이유는 한개의 Row에서 여러개의 값을 써야하는 경우를 위해서 여분의 컬럼으로 추가제작하였다.
+  '
+]{
+  id bigint(20) [pk, increment, note: 'Value 리스트 고유값']
+  category bigint(20) [ref: > codes.t_code_category.id, not null, 
+      note: 'code를 사용할 카테고리 지정'
+  ]
+  key_id varchar(255) [ref:> codes.t_code_key.key_id ,not null, 
+    note: '
+      t_code_key의 id를 가져올지 아니면 key_id를 가져올지 심각하게 고민을 많이 했다.
+      근데 직관적인건 텍스트 가져오는거라 생각해서 여기서는 텍스트를 가져왔다.
+    '
+  ]
+  description longtext [note: '해당 데이터 설명']
+  use_yn tinyint(1) [not null, default:1, note:'
+    사용여부
+    1(true) : 사용, 0(false) : 미사용  
+  ']
+  param1 varchar(255) [not null, note:'첫번쨰는 무조건 값이 있어야함.']
+  param2 varchar(255) 
+  param3 varchar(255) 
+  param4 varchar(255) 
+  param5 varchar(255) 
+  param6 varchar(255) 
+  param7 varchar(255) 
+  param8 varchar(255) 
+  param9 varchar(255) 
+  param10 varchar(255)
+  created_at datetime [not null, default:`now()`, note: '생성일']
+  created_user bigint(20) [ref:> U.id, not null, note: '생성한 관리자 ID']
+  updated_at datetime [not null, default:`now()`, note: '최종 수정일']
+  updated_user bigint(20) [ref:> U.id, not null, note: '최종 수정한 관리자 ID']
+
+  Indexes {
+    (category, key_id, id)  [ name: 't_code_value_category_default'] 
   }
 }
