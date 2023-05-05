@@ -82,6 +82,14 @@ Table auth.t_user as U[
   }
 }
 
+Table auth.t_user_profile_resource [
+  headercolor: #EB801B, 
+  note:'사용자의 프로필 이미지 Resource Mapping Table']
+{
+  user_id bigint(20) [ref: - U.id, not null, note: '사용자 ID']
+  resource_id bigint(20) [ref: - common.tbl_resource.id, not null, note: 'Resource ID']
+}
+
 Table auth.t_user_provider_key[
   headercolor: #EB801B, 
   note:'
@@ -117,6 +125,19 @@ Table logs.t_logs[
   created_at datetime [not null, default: `now()`, note: '생성일']
 }
 
+Table logs.t_user_login_logs[
+  headercolor: #DE65C3,
+  note:'관리차원 사용자 접속정보 확인'
+]{
+  id bigint(20) [pk, increment, note:'id']
+  user_id bigint(20) [ref: > U.id, not null, note: '사용자 ID']
+  request_time datetime [not null,default:`now()`, note:'로그인 요청 시간']
+
+  Indexes {
+    (user_id, request_time) [name: 'i_userloginlogs_userid_idx']
+  }
+}
+
 //---------------------------------------------------------------------------
 // 게시판
 enum board.article_status {
@@ -141,8 +162,40 @@ enum board.board_status{
   DELETE  [note: '삭제 처리']
 }
 
+Table board.category [
+  headercolor: #79AD51,
+  note: '게시판 : 대단원 - 카테고리'
+]{
+  id bigint(20) [pk, not null, increment]
+  category_name varchar(255) [not null, note: '게시판 카테고리']
+  description longtext [null, note:'카테고리 소개']
+  is_use tinyint(1) [not null, default:1, note:'
+    사용여부
+    1(true) : 사용, 0(false) : 미사용  
+  ']
+  created_at datetime(6) [not null, default: `now()`, note:'최초 생성일']
+  created_user bigint(20) [ref:> U.id, not null, note: '생성한 관리자 ID']
+  updated_at datetime [not null, default:`now()`, note: '최종 수정일']
+  updated_user bigint(20) [ref:> U.id, not null, note: '최종 수정한 관리자 ID']
+}
 
-
+//---------------------------------------------------------------------------
+//공통 기능 테이블
+Table common.tbl_resource [
+  headercolor: #24BAB1,
+  note: '파일의 저장 정보 테이블'
+]{
+  id bigint(20) [pk, not null, increment]
+  created_at datetime(6) [not null, default: `now()`, note:'최초 생성일']
+  created_user bigint(20) [ref:> U.id, not null, note: '생성한 사용자 ID']
+  updated_at datetime [not null, default:`now()`, note: '최종 수정일']
+  updated_user bigint(20) [ref:> U.id, not null, note: '최종 수정한 사용자 ID']
+  org_file_name varchar(255) [default: null, note: '원본 파일 명']
+  now_file_name varchar(255) [not null, note: '현재 파일 명']
+  path varchar(255) [not null, note: '파일 경로']
+  tpye varchar(255) [not null, note: '확장자']
+  size bigint(20) [not null, note: '파일 사이즈']
+}
 
 
 
@@ -154,6 +207,7 @@ TableGroup Admin{
   codes.t_code_key
   codes.t_code_value
   logs.t_logs
+  logs.t_user_login_logs
 }
 
 
@@ -166,7 +220,7 @@ Table codes.t_code_category [
 ]{
   id bigint(20) [pk, increment, note: '코드 카테고리 id']
   name varchar(255) [not null, note: '카테고리 명']
-  use_yn tinyint(1) [not null, default: 1, note:'
+  is_use tinyint(1) [not null, default: 1, note:'
     사용여부
     1(true) : 사용, 0(false) : 미사용  
   ']
@@ -192,7 +246,7 @@ Table codes.t_code_key [
   ]
   key_id varchar(255) [unique, note: '사용자가 지정한 코드 키']
   description longtext [null, note: '해당 키에 대한 설명']
-  use_yn tinyint(1) [not null, default: 1, note:'
+  is_use tinyint(1) [not null, default: 1, note:'
     사용여부
     1(true) : 사용, 0(false) : 미사용  
   ']
@@ -226,20 +280,15 @@ Table codes.t_code_value [
     '
   ]
   description longtext [note: '해당 데이터 설명']
-  use_yn tinyint(1) [not null, default:1, note:'
+  is_use tinyint(1) [not null, default:1, note:'
     사용여부
     1(true) : 사용, 0(false) : 미사용  
   ']
   param1 varchar(255) [not null, note:'첫번쨰는 무조건 값이 있어야함.']
-  param2 varchar(255) 
-  param3 varchar(255) 
-  param4 varchar(255) 
-  param5 varchar(255) 
-  param6 varchar(255) 
-  param7 varchar(255) 
-  param8 varchar(255) 
-  param9 varchar(255) 
-  param10 varchar(255)
+  param2 varchar(255) [null, note: '예비컬럼1']
+  param3 varchar(255) [null, note: '예비컬럼2']
+  param4 varchar(255) [null, note: '예비컬럼3']
+  param5 varchar(255) [null, note: '예비컬럼4']
   created_at datetime [not null, default:`now()`, note: '생성일']
   created_user bigint(20) [ref:> U.id, not null, note: '생성한 관리자 ID']
   updated_at datetime [not null, default:`now()`, note: '최종 수정일']
@@ -249,3 +298,27 @@ Table codes.t_code_value [
     (category, key_id, id)  [ name: 't_code_value_category_default'] 
   }
 }
+//---------------------------------------------------------------------------
+// Sample로 제작해본 GW
+/*
+enum GW.docs_status {
+  DRAFT [note: '상신']
+  REDRAFT [note: '재상신']
+  WITHDRAW [note: '회수']
+  WRITING [note: '작성중']
+  RETURN [note: '반려']
+  PROCESS [note: '처리중']
+  END     [note: '결제 완료']
+}
+
+Table GW.docs {
+  id bigint(20) [pk, not null, increment]
+  title varchar(255) [not null, note: '문서 제목']
+  content longtext [not null, note: '문서 내용']
+  status GW.docs_status [not null, note: '문서 진행 상태']
+  created_at datetime [not null, default:`now()`, note: '문서 생성일']
+  created_user bigint(20) [ref:> U.id, not null, note: '생성한 사용자 ID']
+  updated_at datetime [not null, default:`now()`, note: '최종 수정일']
+  updated_user bigint(20) [ref:> U.id, not null, note: '최종 수정한 사용자 ID']
+}
+*/
