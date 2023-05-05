@@ -4,6 +4,15 @@
 
 > 해당 프로젝트는 DBDocs에 대한 포스트를 작성하고자 Sample을 작성할 때 사용한 저장소로 혹시라도 DBML파일이 필요할 경우 자유롭게 사용 할 수 제작하였습니다.
 
+---
+
+## 해당 레포지토리 코드확인 페이지
+
+- [DBDiagram, ERD](https://dbdiagram.io/d/64551676dca9fb07c49405bc)
+- [DBDocs, 문서화 페이지](https://dbdocs.io/donsonioc2010/DBDocsSample)
+
+---
+
 ## 제작자 관련 포스트
 
 ---
