@@ -211,7 +211,7 @@ Table board.article_resource [
   headercolor: #79AD51,
   note: '게시판 : 게시물 - 첨부파일'
 ]{  
-  article_id bigint(20) [pk, ref: - U.id, not null, note: '사용자 ID']
+  article_id bigint(20) [pk, ref: - board.article.id, not null, note: '사용자 ID']
   resource_id bigint(20) [pk, ref: - common.tbl_resource.id, not null, note: 'Resource ID']
 
   Indexes {
