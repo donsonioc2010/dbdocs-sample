@@ -88,6 +88,11 @@ Table auth.t_user_profile_resource [
 {
   user_id bigint(20) [ref: - U.id, not null, note: '사용자 ID']
   resource_id bigint(20) [ref: - common.tbl_resource.id, not null, note: 'Resource ID']
+
+  Indexes {
+    (user_id, resource_id) [pk]
+    user_id [name:'i_resource_user_id_order']
+  }
 }
 
 Table auth.t_user_provider_key[
@@ -113,33 +118,10 @@ Table auth.t_user_provider_key[
   }
 }
 
-Table logs.t_logs[
-  headercolor: #DE65C3,
-  note:'
-    관리차원 로그 메세지를 담을 수 있는 테이블
-  '
-]{
-  id bigint(20) [pk, increment, note:'id']
-  table_name varchar(255) [not null, note: '작업 테이블']
-  logmessage longtext [not null, note:'작업내역']
-  created_at datetime [not null, default: `now()`, note: '생성일']
-}
-
-Table logs.t_user_login_logs[
-  headercolor: #DE65C3,
-  note:'관리차원 사용자 접속정보 확인'
-]{
-  id bigint(20) [pk, increment, note:'id']
-  user_id bigint(20) [ref: > U.id, not null, note: '사용자 ID']
-  request_time datetime [not null,default:`now()`, note:'로그인 요청 시간']
-
-  Indexes {
-    (user_id, request_time) [name: 'i_userloginlogs_userid_idx']
-  }
-}
-
 //---------------------------------------------------------------------------
 // 게시판
+
+// 게시물 상태
 enum board.article_status {
   WRITING
   WAITING [note: '대기']
@@ -148,6 +130,13 @@ enum board.article_status {
   DELETE  [note: '삭제']
 }
 
+enum board.reply_status {
+  POST
+  HIDING [note: '숨김처리']
+  DELETE [note: '삭제처리']
+}
+
+// 게시판 타입
 enum board.board_type {
   ONEONONE  [note: '1:1 게시판']
   SECRET    [note: '비밀 게시판, 특정 지정한 사용자만 접속 가능하다.']
@@ -155,6 +144,7 @@ enum board.board_type {
   ONEONMANY [note: '전체 게시판']
 }
 
+// 게시판 상태
 enum board.board_status{
   HIDE    [note: '숨김처리']
   USE     [note: '현재 사용중']
@@ -169,14 +159,138 @@ Table board.category [
   id bigint(20) [pk, not null, increment]
   category_name varchar(255) [not null, note: '게시판 카테고리']
   description longtext [null, note:'카테고리 소개']
-  is_use tinyint(1) [not null, default:1, note:'
-    사용여부
-    1(true) : 사용, 0(false) : 미사용  
-  ']
+  sort_no int [not null, note: '카테고리 리스트 출력 순서']
+  is_use board.board_status [not null, default: 'USE', note:'카테고리 상태']
   created_at datetime(6) [not null, default: `now()`, note:'최초 생성일']
   created_user bigint(20) [ref:> U.id, not null, note: '생성한 관리자 ID']
   updated_at datetime [not null, default:`now()`, note: '최종 수정일']
   updated_user bigint(20) [ref:> U.id, not null, note: '최종 수정한 관리자 ID']
+}
+
+Table board.board [
+  headercolor: #79AD51,
+  note: '게시판 : 중단원 - 게시판 리스트'
+]{
+  id bigint(20) [pk, not null, increment, note: '게시판 ID']
+  category_id bigint(20) [ref:> board.category.id, not null, note: '게시판이 포함된 카테고리ID']
+  board_name varchar(255) [not null, note: '게시판 이름']
+  description longtext [null, note: '게시판 세부 설명']
+  sort_no int [not null, note:'게시판 출력 순서, category별로 0부터 시작한다.']
+  type board.board_type [not null, default: 'ONEONMANY', note:'
+    게시판 사용 형태
+    게시판마다 컬럼이 다르게 필요하면, 해당 컬럼과 연계해서 제작하면 된다.
+    필자의 경우 간단한 Sample만 제작하는 것이기에 추가하지는 않았다.
+  ']
+  is_use board.board_status [not null, default: 'USE',note:'게시판 사용 상태']
+  created_at datetime(6) [not null, default: `now()`, note:'최초 생성일']
+  created_user bigint(20) [ref:> U.id, not null, note: '생성한 관리자 ID']
+  updated_at datetime [not null, default:`now()`, note: '최종 수정일']
+  updated_user bigint(20) [ref:> U.id, not null, note: '최종 수정한 관리자 ID']
+}
+
+Table board.article [
+  headercolor: #79AD51,
+  note: '게시판 : 게시물 - 게시물'
+]{
+  id bigint(20) [pk, not null, increment, note:'게시물 ID']
+  board_id bigint(20) [ref:> board.board.id, not null, note: '게시물 ID']
+  title varchar(255) [not null, note: '게시물 제목']
+  content longtext [not null, note: '게시물 내용']
+  view_cnt int [not null, default: 0, note: '게시물 조회수']
+  reply_cnt int [not null, default: 0, note: '게시믈 총 댓글 수']
+  recommend_cnt int [not null, default: 0, note: '게시물 추천 갯수']
+  not_recommend_cnt int [not null, default: 0, note: '게시물 비추천 갯수']
+  status board.article_status [not null, default: 'POST', note: '게시물 상태']
+  created_at datetime(6) [not null, default: `now()`, note:'최초 생성일']
+  created_user bigint(20) [ref:> U.id, not null, note: '작성자']
+  updated_at datetime [not null, default:`now()`, note: '최종 수정일']
+  updated_user bigint(20) [ref:> U.id, not null, note: '최종 수정자, 관리자인지, 본인인지 구별을 위함']
+}
+
+Table board.article_resource [
+  headercolor: #79AD51,
+  note: '게시판 : 게시물 - 첨부파일'
+]{  
+  article_id bigint(20) [pk, ref: - U.id, not null, note: '사용자 ID']
+  resource_id bigint(20) [pk, ref: - common.tbl_resource.id, not null, note: 'Resource ID']
+
+  Indexes {
+    article_id [name: 'i_article_resource_idx']
+  }
+}
+
+Table board.article_recommend [
+  headercolor: #79AD51,
+  note: '게시판 : 게시물 - 추천 비추천'
+]{
+  id bigint(20) [pk, not null, increment, note: '']
+  user_id bigint(20) [pk, ref:> U.id, not null, note:'추천한 사용자 ID']
+  article_id bigint(20) [pk, ref:> board.article.id ,not null, note: '게시물 ID']
+  recommend tinyint(1) [not null, default: 1, note: '추천여부, 0: 비추천, 1:추천']  
+  recommend_at datetime(6) [not null, default: `now()`, note:'추천일']
+
+  Indexes{
+    article_id [name: "i_article_recommend_article_id_idx"]
+    user_id [name: "i_article_recommend_user_id_idx"]
+  }
+}
+
+Table board.article_reply [
+  headercolor: #79AD51,
+  note: '게시판 : 게시물 - 댓글'
+]{
+  id bigint(20) [pk, not null, increment, note:'댓글 ID']
+  article_id bigint(20) [ref:> board.article.id ,not null]
+  parent_reply_id bigint(20) [ref:> board.article_reply.id, null, note: '대댓글을 위한 부모 ID']
+  depth int [not null, note:'댓글 깊이, 쓰고싶으면 쓰자..']
+  sort_no int [not null,note: '게시물 순서, 해당 depth에서 1부터 시작함']
+  content longtext [not null, note: '댓글 내용']
+  status board.reply_status [not null, default: 'POST', note: '게시물의 상태']
+  recommend_cnt int [not null, default: 0, note: '댓글 추천 갯수']
+  reply_at datetime [not null, default: `now()`, note: '댓글 작성일']
+  
+  Indexes{
+    (article_id, depth, sort_no) [name: "i_article_reply_article_id_idx"]
+
+  }
+}
+
+Table board.article_reply_recent[
+  headercolor: #79AD51,
+  note: '게시판 : 게시물 - 댓글 - 추천
+    댓글의 경우에는 추천만 존재한다
+  '
+]{
+  id bigint(20) [pk, not null, increment, note:'댓글 ID']
+  user_id bigint(20) [pk, ref:> U.id, not null, note:'추천한 사용자 ID']
+  reply_id bigint(20) [pk, ref:> board.article_reply.id ,not null]
+  recent_at datetime(6) [not null, default: `now()`, note:'추천일']
+
+  Indexes{
+    reply_id [name: "i_article_reply_recent_reply_id_idx"]
+    user_id [name: "i_article_reply_recent_user_id_idx"]
+  }
+}
+
+Table board.article_view_history [
+  headercolor: #79AD51,
+  note: '게시판 : 게시물 - 조회이력 (로그인시)'
+]{
+  id bigint(20) [pk, not null, increment, note:'댓글 ID']
+  article_id bigint(20) [ref:> board.article.id ,not null, note: '게시물 ID']
+  user_id bigint(20) [ref:> U.id, not null , note: '게시물을 확인한 사용자 ID']
+  article_view_at datetime [not null, note: '게시물을 확인한 시간']
+}
+
+
+Table board.article_tags [
+  headercolor: #79AD51,
+  note: '게시판 : 게시물 - 추천 비추천'
+]{
+  id bigint(20) [pk, not null, increment, note: '']
+  article_id bigint(20) [ref:> board.article.id ,not null]
+  tag varchar(255) [not null, note: '간단한 태그']
+  sort_no int [not null]
 }
 
 //---------------------------------------------------------------------------
@@ -296,6 +410,31 @@ Table codes.t_code_value [
 
   Indexes {
     (category, key_id, id)  [ name: 't_code_value_category_default'] 
+  }
+}
+
+Table logs.t_logs[
+  headercolor: #DE65C3,
+  note:'
+    관리차원 로그 메세지를 담을 수 있는 테이블
+  '
+]{
+  id bigint(20) [pk, increment, note:'id']
+  table_name varchar(255) [not null, note: '작업 테이블']
+  logmessage longtext [not null, note:'작업내역']
+  created_at datetime [not null, default: `now()`, note: '생성일']
+}
+
+Table logs.t_user_login_logs[
+  headercolor: #DE65C3,
+  note:'관리차원 사용자 접속정보 확인'
+]{
+  id bigint(20) [pk, increment, note:'id']
+  user_id bigint(20) [not null, note: '사용자 ID, 관계를 엮진 않았으나, 사용자 ID를 기입한다.']
+  request_time datetime [not null,default:`now()`, note:'로그인 요청 시간']
+
+  Indexes {
+    (user_id, request_time) [name: 'i_userloginlogs_userid_idx']
   }
 }
 //---------------------------------------------------------------------------
